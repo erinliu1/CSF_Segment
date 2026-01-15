@@ -1,0 +1,2 @@
+[console_scripts]
+csf-segment = csf_segment.main:cli

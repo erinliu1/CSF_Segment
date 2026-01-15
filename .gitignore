@@ -1,0 +1,6 @@
+# --- project data (local only) ---
+data/
+
+# python junk
+__pycache__/
+*.py[cod]
