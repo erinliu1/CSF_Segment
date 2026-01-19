@@ -4,3 +4,11 @@ data/
 # python junk
 __pycache__/
 *.py[cod]
+
+# ---- Packaging / install artifacts ----
+*.egg-info/
+dist/
+build/
+
+# ---- OS cruft ----
+.DS_Store

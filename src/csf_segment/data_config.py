@@ -44,11 +44,11 @@ class DataConfig:
         raise NotImplementedError #TODO
     
     def get_anatomical_folder(self, participant):
-        # returns the full path to the given participant's anatomical v4 mask files
+        # returns the full path to the given participant's anatomical fourth ventricle mask files
         raise NotImplementedError #TODO
     
     def is_anatomical_file(self, filename):
-        # checks if the given filename matches the anatomical v4 mask file pattern.
+        # checks if the given filename matches the anatomical fourth ventricle mask file pattern.
         # If so, return the run ID (inside the first paranthesis in the regex, e.g. run01). 
         # Otherwise, return None.
         raise NotImplementedError #TODO
@@ -82,7 +82,8 @@ class ExampleDataConfig:
         return match.group(1) if match else None
 
     def get_anatomical_folder(self, participant):
-        return f"{self.main_dir}/{participant}/ses-02-night/mri/masks/CSF"
+        return f"/orcd/data/ldlewis/001/om/erinliu/anatomical_segment/data/{participant}/CSF"
+        # return f"{self.main_dir}/{participant}/ses-02-night/mri/masks/CSF"
     
     def is_anatomical_file(self, filename):
         # checks for filenames that match 'v4_run01.nii.gz', 'v4_run02.nii.gz', etc.
