@@ -89,10 +89,17 @@ class Cropper:
         (optionally) Save the cropped sbref as a .npy file.
         """
         min_x, min_y, min_z, max_x, max_y, max_z = self.unpack_bbox()
-        if len(self.sbref_npy.shape) != 3:
-            raise Exception(f"\tError: Unexpected sbref image with shape: {self.sbref_npy.shape}. Should be 3D.")
-        sbref_cropped = self.sbref_npy[min_x:max_x+1, min_y:max_y+1, min_z:max_z+1]
-        
+        if len(self.sbref_npy.shape) == 3:
+            sbref_cropped = self.sbref_npy[min_x:max_x+1, min_y:max_y+1, min_z:max_z+1]
+        elif len(self.sbref_npy.shape) == 4:
+            # handle SBRef images that have 2 volumes (phase and magnitude). Choose the volume representing the magnitude
+            # the heuristic we use here is to choose the one with the higher mean value, but check if the output looks correct
+            print(f"⚠️ SBRef image has unexpected shape {self.sbref_npy.shape}.")
+            sbref_cropped_dim0 = self.sbref_npy[:,:,:,0][min_x:max_x+1, min_y:max_y+1, min_z:max_z+1]
+            sbref_cropped_dim1 = self.sbref_npy[:,:,:,1][min_x:max_x+1, min_y:max_y+1, min_z:max_z+1]
+            sbref_cropped = sbref_cropped_dim0 if np.mean(sbref_cropped_dim0) > np.mean(sbref_cropped_dim1) else sbref_cropped_dim1
+        else:
+            raise Exception(f"\tError: Unexpected SBRef image with shape: {self.sbref_npy.shape}.")
         if save_npy:
             np.save(f'{self.save_directory}/sbref.npy', sbref_cropped)
 
