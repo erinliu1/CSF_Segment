@@ -9,14 +9,23 @@ class Cropper:
         self.sbref_path = paths['sbref_path']
         self.fmri_path = paths['fmri_path']
         self.save_directory = save_directory
+        os.makedirs(self.save_directory, exist_ok=True)
 
-        self.anatomical_obj, self.anatomical_mask = self.load_anatomical()
+        self.anatomical_nifti, self.anatomical_npy = self.load_anatomical()
+        self.sbref_nifti = self.load_sbref_nifti()
+        self.sbref_npy = self.load_sbref_npy_full()
         self.bbox_coordinates = self.get_bbox()
     
     def load_anatomical(self):
-        anatomical_obj = nib.load(self.anatomical_path)
-        anatomical_mask = anatomical_obj.get_fdata()
-        return anatomical_obj, anatomical_mask
+        anatomical_nifti = nib.load(self.anatomical_path)
+        anatomical_npy = anatomical_nifti.get_fdata()
+        return anatomical_nifti, anatomical_npy
+
+    def load_sbref_nifti(self):
+        return nib.load(self.sbref_path)
+
+    def load_sbref_npy_full(self):
+        return self.sbref_nifti.get_fdata()
 
     def get_bbox(
         self,
@@ -28,10 +37,12 @@ class Cropper:
         Create a bounding box around the anatomical v4 mask and return bbox coordinates as a dictionary.
         (optionally) Save bbox coordinates in a JSON file and save bbox mask as NIfTI file.
         """
-        nx, ny, nz = self.anatomical_mask.shape
+        nx, ny, nz = self.anatomical_npy.shape
 
         # get the edge coordinates of the anatomical mask
-        coordinates = np.argwhere(self.anatomical_mask > 0)                      # get all nonzero coordinates
+        coordinates = np.argwhere(self.anatomical_npy > 0)                  # get all nonzero coordinates
+        if coordinates.size == 0:
+            raise ValueError(f"Mask is empty: {self.anatomical_path}")
         min_x, min_y, min_z = np.min(coordinates, axis=0)                   # get the minimum nonzero x, y, z coordinates
         max_x, max_y, max_z = np.max(coordinates, axis=0)                   # get the maximum nonzero x, y, z coordinates
 
@@ -55,9 +66,9 @@ class Cropper:
                 json.dump(bbox_coordinates, json_file)
 
         if save_nifti: # save the bbox mask as NIfTI image with 1s within the bbox, 0s everywhere else (can load in FreeSurfer to visualize)
-            bbox_mask = np.zeros(self.anatomical_mask.shape)
+            bbox_mask = np.zeros(self.anatomical_npy.shape)
             bbox_mask[min_x:max_x+1, min_y:max_y+1, min_z:max_z+1] = 1
-            bbox_obj = nib.Nifti1Image(bbox_mask, affine=self.anatomical_obj.affine, header=self.anatomical_obj.header)
+            bbox_obj = nib.Nifti1Image(bbox_mask, affine=self.anatomical_nifti.affine, header=self.anatomical_nifti.header)
             nib.save(bbox_obj, f'{self.save_directory}/bbox.nii.gz')
         
         return bbox_coordinates
@@ -78,11 +89,9 @@ class Cropper:
         (optionally) Save the cropped sbref as a .npy file.
         """
         min_x, min_y, min_z, max_x, max_y, max_z = self.unpack_bbox()
-        sbref_obj = nib.load(self.sbref_path)
-        sbref_image = sbref_obj.get_fdata()
-        if len(sbref_image.shape) != 3:
-            raise Exception(f"\tError: Unexpected sbref image with shape: {sbref_image.shape}. Should be 3D.")
-        sbref_cropped = sbref_image[min_x:max_x+1, min_y:max_y+1, min_z:max_z+1]
+        if len(self.sbref_npy.shape) != 3:
+            raise Exception(f"\tError: Unexpected sbref image with shape: {self.sbref_npy.shape}. Should be 3D.")
+        sbref_cropped = self.sbref_npy[min_x:max_x+1, min_y:max_y+1, min_z:max_z+1]
         
         if save_npy:
             np.save(f'{self.save_directory}/sbref.npy', sbref_cropped)
@@ -124,15 +133,15 @@ class Cropper:
         
     def uncrop(self, cropped):
         """
-        Uncrop the given cropped npy array back to the original volume size using the anatomical v4 mask.
+        Uncrop the given cropped npy array back to the original volume size as in the original SBRef image.
         """
         min_x, min_y, min_z, max_x, max_y, max_z = self.unpack_bbox()
 
         # create an empty volume of original volume size and place the cropped data back into it
-        uncropped = np.zeros(self.anatomical_mask.shape)
+        uncropped = np.zeros(self.sbref_npy.shape)
         uncropped[min_x:max_x+1, min_y:max_y+1, min_z:max_z+1] = cropped
 
-        uncropped_obj = nib.Nifti1Image(uncropped, affine=self.anatomical_obj.affine, header=self.anatomical_obj.header)
+        uncropped_obj = nib.Nifti1Image(uncropped, affine=self.sbref_nifti.affine, header=self.sbref_nifti.header)
         nib.save(uncropped_obj, f'{self.save_directory}/result.nii.gz')
 
         return uncropped
