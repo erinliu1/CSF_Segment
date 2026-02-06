@@ -83,6 +83,10 @@ class Cropper:
             self.bbox_coordinates['max_z'],
         )
 
+    def crop(self, img):
+        min_x, min_y, min_z, max_x, max_y, max_z = self.unpack_bbox()
+        return img[min_x:max_x+1, min_y:max_y+1, min_z:max_z+1]
+
     def crop_sbref(self, save_npy=True):
         """
         Crop the sbref image using the provided bbox coordinates and return the cropped sbref array.
@@ -90,14 +94,19 @@ class Cropper:
         """
         min_x, min_y, min_z, max_x, max_y, max_z = self.unpack_bbox()
         if len(self.sbref_npy.shape) == 3:
-            sbref_cropped = self.sbref_npy[min_x:max_x+1, min_y:max_y+1, min_z:max_z+1]
+            sbref_cropped = self.crop(self.sbref_npy)
         elif len(self.sbref_npy.shape) == 4:
             # handle SBRef images that have 2 volumes (phase and magnitude). Choose the volume representing the magnitude
             # the heuristic we use here is to choose the one with the higher mean value, but check if the output looks correct
             print(f"⚠️ SBRef image has unexpected shape {self.sbref_npy.shape}.")
-            sbref_cropped_dim0 = self.sbref_npy[:,:,:,0][min_x:max_x+1, min_y:max_y+1, min_z:max_z+1]
-            sbref_cropped_dim1 = self.sbref_npy[:,:,:,1][min_x:max_x+1, min_y:max_y+1, min_z:max_z+1]
-            sbref_cropped = sbref_cropped_dim0 if np.mean(sbref_cropped_dim0) > np.mean(sbref_cropped_dim1) else sbref_cropped_dim1
+            sbref_cropped_dim0 = self.crop(self.sbref_npy[:,:,:,0])
+            sbref_cropped_dim1 = self.crop(self.sbref_npy[:,:,:,1])
+            if np.mean(sbref_cropped_dim0) > np.mean(sbref_cropped_dim1):
+                self.sbref_npy = self.sbref_npy[:,:,:,0] # update sbref_npy to be the cropped magnitude volume for future reference
+                sbref_cropped = sbref_cropped_dim0
+            else:
+                self.sbref_npy = self.sbref_npy[:,:,:,1]
+                sbref_cropped = sbref_cropped_dim1
         else:
             raise Exception(f"\tError: Unexpected SBRef image with shape: {self.sbref_npy.shape}.")
         if save_npy:
@@ -110,12 +119,11 @@ class Cropper:
         Crop the fmri volume using the provided bbox coordinates and return the cropped fmri array.
         (optionally) Save the cropped fmri as a .npy file.
         """
-        min_x, min_y, min_z, max_x, max_y, max_z = self.unpack_bbox()
         fmri_obj = nib.load(self.fmri_path)
         fmri_image = fmri_obj.get_fdata()
         if len(fmri_image.shape) != 4:
             raise Exception(f"\tError: Unexpected fMRI image with shape: {fmri_image.shape}. Should be 4D.")
-        fmri_cropped = fmri_image[min_x:max_x+1, min_y:max_y+1, min_z:max_z+1, :]
+        fmri_cropped = self.crop(fmri_image)
         
         if save_npy:
             np.save(f'{self.save_directory}/fmri.npy', fmri_cropped)
@@ -145,7 +153,7 @@ class Cropper:
         min_x, min_y, min_z, max_x, max_y, max_z = self.unpack_bbox()
 
         # create an empty volume of original volume size and place the cropped data back into it
-        uncropped = np.zeros(self.sbref_npy.shape)
+        uncropped = np.zeros(self.sbref_npy.shape[:3])
         uncropped[min_x:max_x+1, min_y:max_y+1, min_z:max_z+1] = cropped
 
         uncropped_obj = nib.Nifti1Image(uncropped, affine=self.sbref_nifti.affine, header=self.sbref_nifti.header)
