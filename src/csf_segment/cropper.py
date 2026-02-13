@@ -38,19 +38,22 @@ class Cropper:
         (optionally) Save bbox coordinates in a JSON file and save bbox mask as NIfTI file.
         """
         nx, ny, nz = self.anatomical_npy.shape
+        # get the edge coordinates of the anatomical mask (within the bottom 4 slices)
+        anatomical_bottom4 = self.anatomical_npy[:, :, :4]
 
-        # get the edge coordinates of the anatomical mask
-        coordinates = np.argwhere(self.anatomical_npy > 0)                  # get all nonzero coordinates
+        coordinates = np.argwhere(anatomical_bottom4 > 0)                   # get all nonzero coordinates
         if coordinates.size == 0:
             raise ValueError(f"Mask is empty: {self.anatomical_path}")
-        min_x, min_y, min_z = np.min(coordinates, axis=0)                   # get the minimum nonzero x, y, z coordinates
-        max_x, max_y, max_z = np.max(coordinates, axis=0)                   # get the maximum nonzero x, y, z coordinates
+        min_x, min_y, _ = np.min(coordinates, axis=0)                   # get the minimum nonzero x, y, z coordinates
+        max_x, max_y, _ = np.max(coordinates, axis=0)                   # get the maximum nonzero x, y, z coordinates
 
         # dilate edge coordinates by d voxels in x and y directions
         d = dilation
-        min_x, min_y = max(min_x - d, 0), max(min_y - d, 0)                 # ensure min coords don't go below 0
-        max_x, max_y = min(max_x + d, nx - 1), min(max_y + d, ny - 1)       # ensure max coords don't exceed the volume size
-        min_z, max_z = 0, 3                                                 # by default, take the bottom 4 slices only
+        min_x = max(min_x - d, 0)                                      # ensure min coords don't go below 0
+        min_y = max(min_y - d, 0)
+        max_x = min(max_x + d, nx - 1)                                  # ensure max coords don't exceed the volume size
+        max_y = min(max_y + d, ny - 1)
+        min_z, max_z = 0, 3                                            # by default, take the bottom 4 slices only
 
         bbox_coordinates = {
             "min_x": int(min_x),
@@ -60,6 +63,17 @@ class Cropper:
             "max_y": int(max_y),
             "max_z": int(max_z)
         }
+        # where is the max_y attained across the full mask?
+        coords_full = np.argwhere(self.anatomical_npy > 0)
+        max_xf, max_yf, max_zf = coords_full.max(axis=0)
+        print("global max_y occurs at z =", max_zf)
+
+        # where is max_y in just z=0..3?
+        coords_03 = np.argwhere(self.anatomical_npy[:, :, :4] > 0)
+        max_x03, max_y03, max_z03 = coords_03.max(axis=0)
+        print("z<=3 max_y occurs at z =", max_z03, " (local z index)")
+        print("max_y diff =", max_yf - max_y03)
+
 
         if save_json: # save bbox coordinates into json file (can use later to load the predicted mask into the full volume)
             with open(f'{self.save_directory}/bbox.json', 'w') as json_file:
