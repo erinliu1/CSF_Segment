@@ -22,4 +22,4 @@ csf-segment --model-class fusion --threshold 0.5
 * threshold determines what is the minimum probability predicted by the model to select the voxel
 
 ### 4. Details
-To read details about the training data acquisition parameters, segmentaton labeling, preprocessing, training procedure, etc., please see the [abstract](Abstract #00082.pdf) presented at ISMRM Workshop on Fluids, Flows, and Clearance. 
+To read details about the training data acquisition parameters, segmentation labeling, preprocessing, training procedure, etc., please see the [abstract](Abstract%20%2300082.pdf) presented at the ISMRM Workshop on Fluids, Flows, and Clearance.
