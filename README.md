@@ -20,3 +20,6 @@ csf-segment --model-class fusion --threshold 0.5
 ```
 * 2 possible model classes: `static` (only uses static features), or `fusion` (static features + fMRI timeseries)
 * threshold determines what is the minimum probability predicted by the model to select the voxel
+
+### 4. Details
+To read details about the training data acquisition parameters, segmentaton labeling, preprocessing, training procedure, etc., please see the [abstract](Abstract #00082.pdf) presented at ISMRM Workshop on Fluids, Flows, and Clearance. 
